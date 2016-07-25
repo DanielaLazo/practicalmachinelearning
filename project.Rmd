@@ -1,0 +1,86 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Daniela Lazo"
+date: "24 de julio de 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Loading libraries
+
+```{r0}
+library(caret)
+library(plyr)
+```
+
+## Loading and preparing the data
+
+
+
+```{r1}
+training<-read.csv("pml-training.csv")
+testing<-read.csv("pml-testing.csv")
+str(training)
+summary(training)
+```
+
+Deleting variables with more than 90% of NA values
+
+```{r2}
+isna<-apply(training, 2, function (x) sum(is.na (x)))
+training<-training[,isna<0.9*19622]
+```
+ 
+ Deleting variables with low variability
+```{r3}
+
+nearzerovar = nearZeroVar(training, saveMetrics=TRUE)$nzv
+training<-training[,nearzerovar==FALSE]
+```
+
+
+Deleting id
+```{r4}
+training$X<-NULL
+```
+Deleting the high correlated variables (cutoff =0.7)
+```{r5}
+data.num<-training[,colwise(is.numeric)(training)==TRUE]
+data.fac<-training[,colwise(is.numeric)(training)==FALSE]
+cormatrix<-cor(data.num)
+rows_to_delete<-findCorrelation(cormatrix, cutoff = .70)
+data.num<-data.num[,-rows_to_delete]
+training<-cbind(data.fac, data.num)
+```
+
+Creating a validation set  
+```{r6}
+trainIndex = createDataPartition(training$classe, p = 0.7,list=FALSE)
+train_set<-training[trainIndex,]
+validation_set<-training[-trainIndex,]
+```
+
+##Training a random forest model 
+
+```{r7}
+modelRf <- train(classe ~ ., data=train_set, method="rf", ntree=100)
+predictRf<-predict(modelRf, validation_set)
+acc1<-confusionMatrix(validation_set$classe, predictRf)$overall[1]
+acc1
+predict_testing<-predict(modelRf, testing)
+
+```
+The accuracy of out of sample validation is 0.999. The importance of variables is showed in the following section:
+
+```{r8}
+varImp(modelRf)
+
+```
+
+
+
+
